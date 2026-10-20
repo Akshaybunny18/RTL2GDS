@@ -3,9 +3,14 @@
 Name: Chanda Akshay Kumar
 Roll number: 2024102014
 
-All commands are run from the repository root inside WSL (Ubuntu) with the SKY130 PDK installed (open_pdks revision `8afc8346a57fe1ab7934ba5a6056ea8b43078e71`, see Part D for how it was installed). Tools for Parts A to C come from apt: Icarus Verilog 12.0, Yosys 0.33, GTKWave 3.3.116; OpenSTA 3.1.0 was built from source:
+All commands are run in WSL (Ubuntu) from the repository root, with the SKY130 PDK installed (open_pdks revision `8afc8346a57fe1ab7934ba5a6056ea8b43078e71`, see Part D for how it was installed).
+
+Parts B and C are run inside the LibreLane (Nix) environment, so that Parts B to D all use the same Yosys: Yosys 0.62 and OpenSTA 2.7.0, with Icarus Verilog 13.0 for the gate-level simulation. Part A is plain Icarus Verilog (the RTL simulation gives the same PASS with the apt Icarus Verilog 12.0 and with 13.0) and GTKWave 3.3.116 from apt for the waveforms. An earlier run of Parts B and C with the apt Yosys 0.33 and OpenSTA 3.1.0 gave 66 cells and T_min = 2.46 ns; it was redone with Yosys 0.62 because ABC maps the logic differently in each Yosys version.
 
 ```
+cd ~/librelane
+nix-shell
+cd /mnt/c/Users/aksha/Desktop/M-26/DVD/4Bit_Mult_RTL_GDS/mult4_2024102014
 export PDK_ROOT=$HOME/pdk PDK=sky130A
 ```
 
@@ -39,7 +44,7 @@ The clock period `T` (in ns) is read from the environment by `sta/sta.tcl`.
 
 ```
 T=10 sta -exit sta/sta.tcl
-T=2.46 sta -exit sta/sta.tcl
+T=2.98 sta -exit sta/sta.tcl
 ```
 
 ## Part D: physical design (LibreLane)
@@ -63,16 +68,18 @@ The flow was run in a copy of the repository on the WSL filesystem (`~/work/mult
 cd ~/work/mult4/pnr
 ```
 
-First run, with `CLOCK_PERIOD` = 3.0 in `config.json`:
+The starting period is `CLOCK_PERIOD` = 1.2 x T_min = 1.2 x 2.98 = 3.58, rounded up to the next 0.5 ns, which gives 4.0 ns. Each run that fails timing is repeated with `CLOCK_PERIOD` increased by 0.5 ns, after setting it in `config.json`.
+
+Two earlier runs were made before Parts B and C were redone with Yosys 0.62, when T_min was still 2.46 ns (1.2 x 2.46 = 2.95, which gives 3.0 ns). They are recorded here because every attempt must be listed:
 
 ```
-librelane --manual-pdk --pdk-root $HOME/pdk --pdk sky130A config.json
+librelane --manual-pdk --pdk-root $HOME/pdk --pdk sky130A config.json                    # CLOCK_PERIOD = 3.0
+librelane --manual-pdk --pdk-root $HOME/pdk --pdk sky130A --run-tag P3.5 config.json     # CLOCK_PERIOD = 3.5
 ```
 
-Runs 2 to 7, each after setting `CLOCK_PERIOD` in `config.json` to the period in the tag:
+Runs 1 to 5 (each after setting `CLOCK_PERIOD` in `config.json` to the period in the tag):
 
 ```
-librelane --manual-pdk --pdk-root $HOME/pdk --pdk sky130A --run-tag P3.5 config.json
 librelane --manual-pdk --pdk-root $HOME/pdk --pdk sky130A --run-tag P4.0 config.json
 librelane --manual-pdk --pdk-root $HOME/pdk --pdk sky130A --run-tag P4.5 config.json
 librelane --manual-pdk --pdk-root $HOME/pdk --pdk sky130A --run-tag P5.0 config.json
@@ -80,24 +87,24 @@ librelane --manual-pdk --pdk-root $HOME/pdk --pdk sky130A --run-tag P5.5 config.
 librelane --manual-pdk --pdk-root $HOME/pdk --pdk sky130A --run-tag P6.0 config.json
 ```
 
-Run 8, the final run, with `CLOCK_PERIOD` = 6.5 in `config.json` (this is the `pnr/config.json` in the repository):
+Run 6, the final run, with `CLOCK_PERIOD` = 6.5 in `config.json` (this is the `pnr/config.json` in the repository):
 
 ```
 librelane --manual-pdk --pdk-root $HOME/pdk --pdk sky130A --run-tag P6.5 config.json
 ```
 
-Every attempt (`CLOCK_PERIOD` = 1.2 x T_min = 1.2 x 2.46 = 2.95, rounded up to the next 0.5 ns, gives 3.0 ns). The setup slack is `timing__setup__ws` from `metrics.json`, which is the worst slack over all corners:
+Every attempt. The setup slack is `timing__setup__ws` from `metrics.json`, which is the worst slack over all corners:
 
 | Run | CLOCK_PERIOD (ns) | Setup slack (ns) | DRC errors | LVS errors | Result |
 |---|---|---|---|---|---|
-| 1 | 3.0 | -2.254 | 0 | 0 | timing fails |
-| 2 | 3.5 | -1.754 | 0 | 0 | timing fails |
-| 3 | 4.0 | -1.254 | 0 | 0 | timing fails |
-| 4 | 4.5 | -0.754 | 0 | 0 | timing fails |
-| 5 | 5.0 | -0.254 | 0 | 0 | timing fails |
-| 6 | 5.5 | -0.009 | 0 | 0 | timing fails |
-| 7 | 6.0 | -0.001 | 0 | 0 | timing fails |
-| 8 | 6.5 | +0.499 | 0 | 0 | passes |
+| earlier | 3.0 | -2.254 | 0 | 0 | timing fails |
+| earlier | 3.5 | -1.754 | 0 | 0 | timing fails |
+| 1 | 4.0 | -1.254 | 0 | 0 | timing fails |
+| 2 | 4.5 | -0.754 | 0 | 0 | timing fails |
+| 3 | 5.0 | -0.254 | 0 | 0 | timing fails |
+| 4 | 5.5 | -0.009 | 0 | 0 | timing fails |
+| 5 | 6.0 | -0.001 | 0 | 0 | timing fails |
+| 6 | 6.5 | +0.499 | 0 | 0 | passes |
 
 Before run 1, two attempts stopped before the design was processed (the PDK files were incomplete, then the PDK revision did not match this LibreLane version). They produced no results and are not counted.
 

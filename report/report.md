@@ -191,6 +191,10 @@ To be added: the 16 AND gates, 12 full adders and the registers (hand-drawn and 
 
 ## Part B: Logic Synthesis with Yosys
 
+### Tools
+
+Parts B and C, and the gate-level simulation, were run inside the LibreLane (Nix) environment, so that they use the same Yosys as the Part D flow: Yosys 0.62, OpenSTA 2.7.0 and Icarus Verilog 13.0. The RTL simulation of Part A also passes with the apt Icarus Verilog 12.0. An earlier run of Parts B and C with the apt Yosys 0.33 gave 66 cells and T_min = 2.46 ns; it was redone with Yosys 0.62 because ABC maps the logic differently in each version, and all parts should use the same one.
+
 ### Files
 
 - `synth/synth.tcl`: Yosys script with the seven steps from the guide (`read_verilog`, `synth -top mult_array -flatten`, `dfflibmap`, `abc`, `opt_clean -purge`, `tee ... stat -liberty`, `write_verilog -noattr`).
@@ -200,6 +204,10 @@ To be added: the 16 AND gates, 12 full adders and the registers (hand-drawn and 
 ### Commands
 
 ```
+cd ~/librelane
+nix-shell
+cd /mnt/c/Users/aksha/Desktop/M-26/DVD/4Bit_Mult_RTL_GDS/mult4_2024102014
+
 yosys -c synth/synth.tcl > synth/run.txt
 
 CELLS=$PDK_ROOT/sky130A/libs.ref/sky130_fd_sc_hd/verilog
@@ -211,19 +219,23 @@ vvp gls +VCD=synth.vcd
 
 | Metric | Value |
 |---|---|
-| Total number of cells | 66 |
+| Total number of cells | 70 |
 | Number of flip-flops | 16 |
-| Total cell area (um^2) | 771.99 |
+| Total cell area (um^2) | 797.01 |
 | Flip-flop area (um^2) | 400.38 (16 x 25.024, cell `sky130_fd_sc_hd__dfrtp_1`) |
-| Flip-flop area (% of total) | 51.9 % |
-| The 3 most-used cell types and their counts | `dfrtp_1` x 16, `xnor2_1` x 8, `nand2_1` x 7 |
+| Flip-flop area (% of total) | 50.2 % |
+| The 3 most-used cell types and their counts | `dfrtp_1` x 16, `nand2_1` x 10, `clkinv_1` x 6 |
 | Netlist simulation result | `PASS: 256 vectors checked, 0 errors` |
 
-The logic (everything except the flip-flops) uses 66 - 16 = 50 cells.
+The logic (everything except the flip-flops) uses 70 - 16 = 54 cells.
 
-Gate-level simulation of the synthesized netlist with the same testbench:
+Output of the gate-level simulation of the synthesized netlist with the same testbench (`vvp gls +VCD=synth.vcd`):
 
-![Gate-level simulation of the synthesized netlist printing PASS](../synth/gls_pass.png)
+```
+VCD info: dumpfile synth.vcd opened for output.
+PASS: 256 vectors checked, 0 errors
+tb/tb_mult.v:65: $finish called at 5139000 (1ps)
+```
 
 ## Part C: Static Timing Analysis with OpenSTA
 
@@ -234,55 +246,69 @@ Gate-level simulation of the synthesized netlist with the same testbench:
 
 ### Commands
 
+Inside the same `nix-shell`, in the repository folder:
+
 ```
 T=10 sta -exit sta/sta.tcl
-T=2.46 sta -exit sta/sta.tcl
+T=2.98 sta -exit sta/sta.tcl
 ```
 
-![OpenSTA runs at T = 10 ns (worst slack 7.54) and T = 2.46 ns (worst slack -0.00)](../sta/sta_runs.png)
+Output of the two runs:
+
+```
+$ T=10 sta -exit sta/sta.tcl
+OpenSTA 2.7.0 GITDIR-NOT Copyright (c) 2025, Parallax Software, Inc.
+...
+worst slack max 7.02
+
+$ T=2.98 sta -exit sta/sta.tcl
+OpenSTA 2.7.0 GITDIR-NOT Copyright (c) 2025, Parallax Software, Inc.
+...
+worst slack max -0.00
+```
 
 ### Finding the maximum frequency
 
-At T = 10 ns the worst slack is WNS = 7.54 ns, so T_min = T - WNS = 10 - 7.54 = 2.46 ns and F_max = 1000 / 2.46 = 406.5 MHz. Running again at T = 2.46 ns gives a slack of -0.00 ns (about -0.003 ns), which is close to 0. The exact minimum period is about 2.463 ns.
+At T = 10 ns the worst slack is WNS = 7.02 ns, so T_min = T - WNS = 10 - 7.02 = 2.98 ns and F_max = 1000 / 2.98 = 335.6 MHz. Running again at T = 2.98 ns gives a slack of -0.00 ns (about -0.003 ns), which is close to 0. The exact minimum period is about 2.983 ns.
 
 ### Notes on the timing report
 
-- **First path in the file:** The first path in `sta/mult_array_timing.rpt` is the reset recovery check (`rst_n` to flip-flop `_092_`, slack +1.688 ns, MET). It is not the critical path. The real critical path is the second one, in the `clk` path group, from `_102_` to `_098_`.
-- **"VIOLATED" label:** The critical path is labelled "VIOLATED" with a slack of -0.003 ns (3 ps). The guide says to round T_min to 0.01 ns and check that the slack is close to 0, and -0.003 ns meets that. The exact minimum period is about 2.463 ns, so the rounded value 2.46 ns falls 3 ps short of it.
+- **First path in the file:** The first path in `sta/mult_array_timing.rpt` is the reset recovery check (`rst_n` to flip-flop `_100_`, slack +2.208 ns, MET). It is not the critical path. The real critical path is the second one, in the `clk` path group, from `_109_` to `_107_`.
+- **"VIOLATED" label:** The critical path is labelled "VIOLATED" with a slack of -0.003 ns (3 ps). The guide says to round T_min to 0.01 ns and check that the slack is close to 0, and -0.003 ns meets that. The exact minimum period is about 2.983 ns, so the rounded value 2.98 ns falls 3 ps short of it.
 
 ### Results
 
 | Metric | Value |
 |---|---|
-| Worst slack at T = 10 ns (ns) | 7.54 |
-| T_min (ns) | 2.46 |
-| F_max (MHz) | 406.5 |
+| Worst slack at T = 10 ns (ns) | 7.02 |
+| T_min (ns) | 2.98 |
+| F_max (MHz) | 335.6 |
 | Slack at T = T_min (ns) | -0.00 (about -0.003) |
-| Critical path start point | flip-flop `_102_` (`sky130_fd_sc_hd__dfrtp_1`) |
-| Critical path end point | flip-flop `_098_` (`sky130_fd_sc_hd__dfrtp_1`) |
+| Critical path start point | flip-flop `_109_` (`sky130_fd_sc_hd__dfrtp_1`) |
+| Critical path end point | flip-flop `_107_` (`sky130_fd_sc_hd__dfrtp_1`) |
 | Number of cells on the critical path | 9 (the start flip-flop plus 8 logic cells) |
-| Latency = 2 x T_min (ns) | 4.92 |
-| Throughput (million results per second) | 406.5 |
+| Latency = 2 x T_min (ns) | 5.96 |
+| Throughput (million results per second) | 335.6 |
 
 ### Cells on the critical path, in order
 
 | # | Cell | Delay (ns) |
 |---|---|---|
-| 1 | `sky130_fd_sc_hd__dfrtp_1` (clock to Q) | 0.392 |
-| 2 | `sky130_fd_sc_hd__and4_1` | 0.219 |
-| 3 | `sky130_fd_sc_hd__o21ai_0` | 0.178 |
-| 4 | `sky130_fd_sc_hd__nor3b_1` | 0.255 |
-| 5 | `sky130_fd_sc_hd__xnor3_1` | 0.289 |
-| 6 | `sky130_fd_sc_hd__nand3_1` | 0.105 |
-| 7 | `sky130_fd_sc_hd__maj3_1` | 0.390 |
-| 8 | `sky130_fd_sc_hd__maj3_1` | 0.381 |
-| 9 | `sky130_fd_sc_hd__xnor2_1` | 0.129 |
+| 1 | `sky130_fd_sc_hd__dfrtp_1` (clock to Q) | 0.396 |
+| 2 | `sky130_fd_sc_hd__a22o_1` | 0.248 |
+| 3 | `sky130_fd_sc_hd__and3_1` | 0.181 |
+| 4 | `sky130_fd_sc_hd__nor3_1` | 0.276 |
+| 5 | `sky130_fd_sc_hd__xnor3_1` | 0.453 |
+| 6 | `sky130_fd_sc_hd__and3_1` | 0.209 |
+| 7 | `sky130_fd_sc_hd__maj3_1` | 0.361 |
+| 8 | `sky130_fd_sc_hd__maj3_1` | 0.379 |
+| 9 | `sky130_fd_sc_hd__maj3_1` | 0.349 |
 
-Total data arrival time is 2.338 ns, and the required time is 2.335 ns (clock period 2.46 ns minus the flip-flop setup time of 0.125 ns).
+Total data arrival time is 2.852 ns, and the required time is 2.849 ns (clock period 2.98 ns minus the flip-flop setup time of 0.131 ns).
 
 ### Comparison with the full-adder estimate
 
-The `maj3` (majority, the carry function), `xnor3` and `xnor2` cells on this path look like adder logic, which is about 4 cells. This is fewer than the estimate of about 2N = 8 full-adder delays, because `synth -flatten` and ABC merge the full adders with the AND gates and remap them onto complex cells, so the path does not map one-to-one onto full adders.
+The three `maj3` (majority, the carry function) cells and the `xnor3` cell on this path look like adder logic, which is about 4 cells. This is fewer than the estimate of about 2N = 8 full-adder delays, because `synth -flatten` and ABC merge the full adders with the AND gates and remap them onto complex cells, so the path does not map one-to-one onto full adders.
 
 ## Part D: Physical Design with LibreLane
 
@@ -293,41 +319,41 @@ The `maj3` (majority, the carry function), `xnor3` and `xnor2` cells on this pat
 
 ### Choosing the clock period
 
-The guide's starting value is 1.2 x T_min = 1.2 x 2.46 = 2.95 ns, rounded up to the next 0.5 ns, which is 3.0 ns. At 3.0 ns DRC and LVS were clean but the worst setup slack was -2.254 ns, so the period was increased by 0.5 ns per run until the slack was not negative (all runs are listed in the README).
+The guide's starting value is 1.2 x T_min = 1.2 x 2.98 = 3.58 ns, rounded up to the next 0.5 ns, which is 4.0 ns. At 4.0 ns DRC and LVS were clean but the worst setup slack was -1.254 ns, so the period was increased by 0.5 ns per run until the slack was not negative (all runs are listed in the README).
 
 | Run | CLOCK_PERIOD (ns) | Setup slack (ns) |
 |---|---|---|
-| 1 | 3.0 | -2.254 |
-| 2 | 3.5 | -1.754 |
-| 3 | 4.0 | -1.254 |
-| 4 | 4.5 | -0.754 |
-| 5 | 5.0 | -0.254 |
-| 6 | 5.5 | -0.009 |
-| 7 | 6.0 | -0.001 |
-| 8 | 6.5 | +0.499 |
+| 1 | 4.0 | -1.254 |
+| 2 | 4.5 | -0.754 |
+| 3 | 5.0 | -0.254 |
+| 4 | 5.5 | -0.009 |
+| 5 | 6.0 | -0.001 |
+| 6 | 6.5 | +0.499 |
 
-The slack is `timing__setup__ws` from `metrics.json`, the worst slack over all corners. The failing slack comes from the slow corner `ss_100C_1v60` (100 C, 1.60 V). In the typical corner (`tt_025C_1v80`) the 3.0 ns run already had +0.167 ns, and the final 6.5 ns run has +3.429 ns, which is the corner used in Part C.
+Two earlier runs at 3.0 ns (-2.254 ns) and 3.5 ns (-1.754 ns), started from the first T_min of 2.46 ns (Yosys 0.33), also failed; they are recorded in the README but are not counted above.
+
+The slack is `timing__setup__ws` from `metrics.json`, the worst slack over all corners. The failing slack comes from the slow corner `ss_100C_1v60` (100 C, 1.60 V). In the typical corner (`tt_025C_1v80`) the 4.0 ns run already had +1.167 ns, and the final 6.5 ns run has +3.429 ns, which is the corner used in Part C.
 
 ### Results
 
 | Metric | Value |
 |---|---|
 | CLOCK_PERIOD used (ns) | 6.5 |
-| Number of runs needed | 8 |
+| Number of runs needed | 6 (plus 2 earlier runs at 3.0 and 3.5 ns) |
 | Core area (um^2) | 17759.5 |
-| Cells after synthesis (from Part B) | 66 |
+| Cells after synthesis (from Part B) | 70 |
 | Cells after place and route | 4822 (336 without filler and decap cells) |
 | Kinds of cells added | tap cells (`tapvpwrvgnd`, 245), decap and fill cells (`decap` 4214, `fill` 272), clock tree buffers (3), timing repair buffers (20, of which 19 in the netlist are `clkdlybuf4s25`) |
 | Wirelength (um) | 2612 |
 | Setup slack (ns) | +0.499 |
 | Post-route F_max (MHz) | 166.6 |
-| F_max from Part C (MHz) | 406.5 |
+| F_max from Part C (MHz) | 335.6 |
 | DRC errors | 0 (Magic 0, KLayout 0, router 0) |
 | LVS errors | 0 |
 
 Post-route F_max = 1000 / (CLOCK_PERIOD - setup slack) = 1000 / (6.5 - 0.499) = 166.6 MHz.
 
-The 336 cells that are not filler or decap are the 16 flip-flops, 52 logic cells, 245 tap cells, 3 clock buffers and 20 timing repair buffers. The logic grew from 50 cells after Part B synthesis to 52 here.
+The 336 cells that are not filler or decap are the 16 flip-flops, 52 logic cells, 245 tap cells, 3 clock buffers and 20 timing repair buffers. The logic is 54 cells after Part B synthesis and 52 cells here.
 
 ### Layout screenshots
 
