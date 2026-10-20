@@ -44,7 +44,8 @@ module tb_mult;
                 b = j[3:0];
                 // 2-cycle latency: inputs captured at edge 1, product at edge 2
                 repeat (2) @(posedge clk);
-                #1;
+                // sample late in the cycle so gate-level delays have settled
+                #4;
                 expected = a * b;
                 if (p !== expected) begin
                     errors = errors + 1;

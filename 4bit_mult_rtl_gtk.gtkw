@@ -1,0 +1,33 @@
+[*]
+[*] GTKWave Analyzer v3.3.118 (w)1999-2023 BSI
+[*] Mon Oct 19 06:14:38 2026
+[*]
+[dumpfile] "C:\Users\aksha\Desktop\M-26\DVD\4Bit_Mult_RTL_GDS\mult4_2024102014\mult.vcd"
+[dumpfile_mtime] "Mon Oct 19 06:09:58 2026"
+[dumpfile_size] 61008
+[savefile] "C:\Users\aksha\Desktop\M-26\DVD\4Bit_Mult_RTL_GDS\mult4_2024102014\4bit_mult_rtl_gtk.gtkw"
+[timestart] 0
+[size] 1280 697
+[pos] -1 -1
+*-19.964973 916000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 174
+[signals_width] 165
+[sst_expanded] 1
+[sst_vpaned_height] 191
+@28
+tb_mult.clk
+@24
+tb_mult.a[3:0]
+tb_mult.b[3:0]
+tb_mult.expected[7:0]
+tb_mult.p[7:0]
+@420
+tb_mult.i
+@24
+tb_mult.j
+@28
+tb_mult.rst_n
+@24
+tb_mult.errors
+[pattern_trace] 1
+[pattern_trace] 0
