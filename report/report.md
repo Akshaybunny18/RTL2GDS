@@ -225,6 +225,60 @@ Gate-level simulation of the synthesized netlist with the same testbench:
 
 ![Gate-level simulation of the synthesized netlist printing PASS](../synth/gls_pass.png)
 
+## Part C: Static Timing Analysis with OpenSTA
+
+### Files
+
+- `sta/sta.tcl`: OpenSTA script with the seven steps from the guide, using the typical corner `tt_025C_1v80`. The clock period T (in ns) is read from the environment variable `T`.
+- `sta/mult_array_timing.rpt`: generated critical path report (the run at T = T_min).
+
+### Commands
+
+```
+T=10 sta -exit sta/sta.tcl
+T=2.46 sta -exit sta/sta.tcl
+```
+
+![OpenSTA runs at T = 10 ns (worst slack 7.54) and T = 2.46 ns (worst slack -0.00)](../sta/sta_runs.png)
+
+### Finding the maximum frequency
+
+At T = 10 ns the worst slack is WNS = 7.54 ns, so T_min = T - WNS = 10 - 7.54 = 2.46 ns and F_max = 1000 / 2.46 = 406.5 MHz. Running again at T = 2.46 ns gives a slack of -0.00 ns (about -0.003 ns), which is close to 0. The exact minimum period is about 2.463 ns.
+
+### Results
+
+| Metric | Value |
+|---|---|
+| Worst slack at T = 10 ns (ns) | 7.54 |
+| T_min (ns) | 2.46 |
+| F_max (MHz) | 406.5 |
+| Slack at T = T_min (ns) | -0.00 (about -0.003) |
+| Critical path start point | flip-flop `_102_` (`sky130_fd_sc_hd__dfrtp_1`) |
+| Critical path end point | flip-flop `_098_` (`sky130_fd_sc_hd__dfrtp_1`) |
+| Number of cells on the critical path | 9 (the start flip-flop plus 8 logic cells) |
+| Latency = 2 x T_min (ns) | 4.92 |
+| Throughput (million results per second) | 406.5 |
+
+### Cells on the critical path, in order
+
+| # | Cell | Delay (ns) |
+|---|---|---|
+| 1 | `sky130_fd_sc_hd__dfrtp_1` (clock to Q) | 0.392 |
+| 2 | `sky130_fd_sc_hd__and4_1` | 0.219 |
+| 3 | `sky130_fd_sc_hd__o21ai_0` | 0.178 |
+| 4 | `sky130_fd_sc_hd__nor3b_1` | 0.255 |
+| 5 | `sky130_fd_sc_hd__xnor3_1` | 0.289 |
+| 6 | `sky130_fd_sc_hd__nand3_1` | 0.105 |
+| 7 | `sky130_fd_sc_hd__maj3_1` | 0.390 |
+| 8 | `sky130_fd_sc_hd__maj3_1` | 0.381 |
+| 9 | `sky130_fd_sc_hd__xnor2_1` | 0.129 |
+
+Total data arrival time is 2.338 ns, and the required time is 2.335 ns (clock period 2.46 ns minus the flip-flop setup time of 0.125 ns).
+
+### Comparison with the full-adder estimate
+
+The `maj3` (majority, the carry function), `xnor3` and `xnor2` cells on this path look like adder logic, which is about 4 cells. This is fewer than the estimate of about 2N = 8 full-adder delays, because `synth -flatten` and ABC merge the full adders with the AND gates and remap them onto complex cells, so the path does not map one-to-one onto full adders.
+
 ## Still to add
 
 - Block diagram (Part A).
