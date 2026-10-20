@@ -284,6 +284,63 @@ Total data arrival time is 2.338 ns, and the required time is 2.335 ns (clock pe
 
 The `maj3` (majority, the carry function), `xnor3` and `xnor2` cells on this path look like adder logic, which is about 4 cells. This is fewer than the estimate of about 2N = 8 full-adder delays, because `synth -flatten` and ABC merge the full adders with the AND gates and remap them onto complex cells, so the path does not map one-to-one onto full adders.
 
+## Part D: Physical Design with LibreLane
+
+### Files
+
+- `pnr/config.json`: LibreLane configuration (`DESIGN_NAME` `mult_array`, `VERILOG_FILES` `rtl/full_adder.v` and `rtl/mult_array.v`, `CLOCK_PORT` `clk`, `CLOCK_PERIOD` 6.5 ns, `FP_SIZING` `absolute`, `DIE_AREA` `[0, 0, 150, 150]`).
+- `pnr/metrics.json` and `pnr/mult_array.gds`: copied from the `final/` folder of the passing run.
+
+### Choosing the clock period
+
+The guide's starting value is 1.2 x T_min = 1.2 x 2.46 = 2.95 ns, rounded up to the next 0.5 ns, which is 3.0 ns. At 3.0 ns DRC and LVS were clean but the worst setup slack was -2.254 ns, so the period was increased by 0.5 ns per run until the slack was not negative (all runs are listed in the README).
+
+| Run | CLOCK_PERIOD (ns) | Setup slack (ns) |
+|---|---|---|
+| 1 | 3.0 | -2.254 |
+| 2 | 3.5 | -1.754 |
+| 3 | 4.0 | -1.254 |
+| 4 | 4.5 | -0.754 |
+| 5 | 5.0 | -0.254 |
+| 6 | 5.5 | -0.009 |
+| 7 | 6.0 | -0.001 |
+| 8 | 6.5 | +0.499 |
+
+The slack is `timing__setup__ws` from `metrics.json`, the worst slack over all corners. The failing slack comes from the slow corner `ss_100C_1v60` (100 C, 1.60 V). In the typical corner (`tt_025C_1v80`) the 3.0 ns run already had +0.167 ns, and the final 6.5 ns run has +3.429 ns, which is the corner used in Part C.
+
+### Results
+
+| Metric | Value |
+|---|---|
+| CLOCK_PERIOD used (ns) | 6.5 |
+| Number of runs needed | 8 |
+| Core area (um^2) | 17759.5 |
+| Cells after synthesis (from Part B) | 66 |
+| Cells after place and route | 4822 (336 without filler and decap cells) |
+| Kinds of cells added | tap cells (`tapvpwrvgnd`, 245), decap and fill cells (`decap` 4214, `fill` 272), clock tree buffers (3), timing repair buffers (20, of which 19 in the netlist are `clkdlybuf4s25`) |
+| Wirelength (um) | 2612 |
+| Setup slack (ns) | +0.499 |
+| Post-route F_max (MHz) | 166.6 |
+| F_max from Part C (MHz) | 406.5 |
+| DRC errors | 0 (Magic 0, KLayout 0, router 0) |
+| LVS errors | 0 |
+
+Post-route F_max = 1000 / (CLOCK_PERIOD - setup slack) = 1000 / (6.5 - 0.499) = 166.6 MHz.
+
+The 336 cells that are not filler or decap are the 16 flip-flops, 52 logic cells, 245 tap cells, 3 clock buffers and 20 timing repair buffers. The logic grew from 50 cells after Part B synthesis to 52 here.
+
+### Layout screenshots
+
+Both screenshots are KLayout views of `pnr/mult_array.gds`.
+
+![Whole die in KLayout: a 150 um x 150 um die with the standard cell area in the middle and the pins a[3:0], b[3:0], clk and p[7:0] on the edges](../pnr/layout_full.png)
+
+Whole die. The die is 150 um x 150 um. The standard cell rows are in the middle, surrounded by empty die area, and the input and output pins are on the die edges.
+
+![Zoomed view in KLayout showing rows of standard cells and the metal wires between them](../pnr/layout_zoom.png)
+
+Zoomed view of the logic area. Only the local interconnect and metal layers are shown (layers 67/20 li1, 68/20 met1, 69/20 met2 and 70/20 met3). The horizontal bands are standard cell rows with their power rails, and the signal wires run along and between the rows.
+
 ## Still to add
 
 - Block diagram (Part A).
