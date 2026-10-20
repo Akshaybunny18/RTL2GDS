@@ -22,8 +22,11 @@ module tb_mult;
     initial clk = 1'b0;
     always #5 clk = ~clk;
 
+    // Waveform file: mult.vcd by default, or choose a name with +VCD=<name>
+    string vcdfile;
     initial begin
-        $dumpfile("mult.vcd");
+        if (!$value$plusargs("VCD=%s", vcdfile)) vcdfile = "mult.vcd";
+        $dumpfile(vcdfile);
         $dumpvars(0, tb_mult);
     end
 

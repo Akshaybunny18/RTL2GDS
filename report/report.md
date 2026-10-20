@@ -185,9 +185,47 @@ Adding the partial products one at a time:
 
 So P = 00111111 = 63, which equals 9 x 7. The same value appears on `p` in the waveform above (`p` = 63 at 3055 ns).
 
-### Still to add
+### Block diagram
 
-- Block diagram showing the 16 AND gates, 12 full adders and the registers (hand-drawn and scanned is fine).
-- Latency label: write "latency = 2 clock cycles" next to the markers on the waveform screenshot, if a label on the picture itself is wanted.
-- Hand-worked example from task 5.
-- Block diagram showing the 16 AND gates, 12 full adders and the registers.
+To be added: the 16 AND gates, 12 full adders and the registers (hand-drawn and scanned is fine).
+
+## Part B: Logic Synthesis with Yosys
+
+### Files
+
+- `synth/synth.tcl`: Yosys script with the seven steps from the guide (`read_verilog`, `synth -top mult_array -flatten`, `dfflibmap`, `abc`, `opt_clean -purge`, `tee ... stat -liberty`, `write_verilog -noattr`).
+- `synth/mult_array_netlist.v`: generated gate-level netlist.
+- `synth/mult_array_stat.rpt`: generated cell and area report.
+
+### Commands
+
+```
+yosys -c synth/synth.tcl > synth/run.txt
+
+CELLS=$PDK_ROOT/sky130A/libs.ref/sky130_fd_sc_hd/verilog
+iverilog -g2012 -DFUNCTIONAL -DUNIT_DELAY=#1 -o gls tb/tb_mult.v $CELLS/primitives.v $CELLS/sky130_fd_sc_hd.v synth/mult_array_netlist.v
+vvp gls +VCD=synth.vcd
+```
+
+### Results
+
+| Metric | Value |
+|---|---|
+| Total number of cells | 66 |
+| Number of flip-flops | 16 |
+| Total cell area (um^2) | 771.99 |
+| Flip-flop area (um^2) | 400.38 (16 x 25.024, cell `sky130_fd_sc_hd__dfrtp_1`) |
+| Flip-flop area (% of total) | 51.9 % |
+| The 3 most-used cell types and their counts | `dfrtp_1` x 16, `xnor2_1` x 8, `nand2_1` x 7 |
+| Netlist simulation result | `PASS: 256 vectors checked, 0 errors` |
+
+The logic (everything except the flip-flops) uses 66 - 16 = 50 cells.
+
+Gate-level simulation of the synthesized netlist with the same testbench:
+
+![Gate-level simulation of the synthesized netlist printing PASS](../synth/gls_pass.png)
+
+## Still to add
+
+- Block diagram (Part A).
+- Latency label on the marked waveform, if wanted (Part A).

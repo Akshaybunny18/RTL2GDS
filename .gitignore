@@ -1,3 +1,6 @@
 mult.vcd
+synth.vcd
 sim
+gls
 main.tex
+synth/run.txt
