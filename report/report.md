@@ -245,6 +245,11 @@ T=2.46 sta -exit sta/sta.tcl
 
 At T = 10 ns the worst slack is WNS = 7.54 ns, so T_min = T - WNS = 10 - 7.54 = 2.46 ns and F_max = 1000 / 2.46 = 406.5 MHz. Running again at T = 2.46 ns gives a slack of -0.00 ns (about -0.003 ns), which is close to 0. The exact minimum period is about 2.463 ns.
 
+### Notes on the timing report
+
+- **First path in the file:** The first path in `sta/mult_array_timing.rpt` is the reset recovery check (`rst_n` to flip-flop `_092_`, slack +1.688 ns, MET). It is not the critical path. The real critical path is the second one, in the `clk` path group, from `_102_` to `_098_`.
+- **"VIOLATED" label:** The critical path is labelled "VIOLATED" with a slack of -0.003 ns (3 ps). The guide says to round T_min to 0.01 ns and check that the slack is close to 0, and -0.003 ns meets that. The exact minimum period is about 2.463 ns, so the rounded value 2.46 ns falls 3 ps short of it.
+
 ### Results
 
 | Metric | Value |
